@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "overage",
+    "slug": "overage",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/splashscreen.png",
+        "backgroundImage": "./assets/splashscreen.png",
+        "monochromeImage": "./assets/splashscreen.png"
+      },
+      "package": "com.anonymous.overage"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
