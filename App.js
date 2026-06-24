@@ -49,67 +49,55 @@ export default function App() {
   };
 
   const sendToGeminiWithAxios = async (id, base64Data) => {
+  try {
+    const response = await axios.post(
+      "https://todo-api-production-62fa.up.railway.app/analyze",
+      {
+        image: base64Data,
+      }
+    );
 
-   try {
-  const response = await axios.post(
-    "https://todo-api-production-62fa.up.railway.app/analyze",
-    {
-      image: base64Data,
-    }
-  );
+    // Backend-dən (server.js) birbaşa gələn təmiz data
+    const data = response.data; 
 
-  const data = response.data;
-
-  if (
-    data.candidates &&
-    data.candidates[0] &&
-    data.candidates[0].content &&
-    data.candidates[0].content.parts &&
-    data.candidates[0].content.parts[0]
-  ) {
-    let textResult =
-      data.candidates[0].content.parts[0].text.trim();
-
-    if (textResult.startsWith("```")) {
-      textResult = textResult
-        .replace(/```json|```/g, "")
-        .trim();
+    // Əgər server.js Gemini-dən gələn text-i birbaşa obyekt kimi yox, 
+    // string kimi qaytarırsa, onu obyektə çeviririk
+    let parsedData = data;
+    if (typeof data === 'string') {
+      // Əgər daxildə markdown (```json) qalıbsa təmizləyirik
+      let cleanedText = data.trim();
+      if (cleanedText.startsWith("```")) {
+        cleanedText = cleanedText.replace(/```json|```/g, "").trim();
+      }
+      parsedData = JSON.parse(cleanedText);
     }
 
-    const parsedData = JSON.parse(textResult);
-
+    // İndi məlumatları yoxlayıb state-ə yazırıq
     if (parsedData && Array.isArray(parsedData.products)) {
       updateImageState(id, {
         products: parsedData.products,
         avgOriginal: parsedData.avg_original
-          ? parsedData.avg_original.toFixed(2)
+          ? Number(parsedData.avg_original).toFixed(2)
           : "0.00",
         avgDiscounted: parsedData.avg_discounted
-          ? parsedData.avg_discounted.toFixed(2)
+          ? Number(parsedData.avg_discounted).toFixed(2)
           : "0.00",
         loading: false,
       });
     } else {
       updateImageState(id, {
-        error: "not true format",
+        error: "Məlumat düzgün formatda deyil",
         loading: false,
       });
     }
-  } else {
+  } catch (error) {
+    console.log("Axios Error:", error);
     updateImageState(id, {
-      error: "not responding for AI",
+      error: "Server bağlantı xətası",
       loading: false,
     });
   }
-} catch (error) {
-  console.log(error);
-
-  updateImageState(id, {
-    error: "Server Error",
-    loading: false,
-  });
-}
-  };
+};
 
   const updateImageState = (id, updatedFields) => {
     setImagesList(prevList => 
