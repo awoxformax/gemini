@@ -1,7 +1,7 @@
 {
   "name": "overage",
   "version": "1.0.0",
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "server.js",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.18.1",
