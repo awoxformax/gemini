@@ -43,58 +43,72 @@ export default function App() {
       setImagesList(selectedImages);
 
       selectedImages.forEach((imgObj) => {
-        sendToBackend(imgObj.id, imgObj.base64);
+        sendToGeminiWithAxios(imgObj.id, imgObj.base64);
       });
     }
   };
 
-  const sendToBackend = async (id, base64Data) => {
-    const backendUrl = 'https://geminibackend-9tsb.onrender.com'; 
+  const sendToGeminiWithAxios = async (id, base64Data) => {
 
-    try {
-      // Şəkli birbaşa öz backendimizə ötürürük
-      const response = await axios.post(backendUrl, {
-        image: base64Data
-      }, {
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      const data = response.data;
-
-      // Backend artıq Gemini-dən gələn cavabı birbaşa ötürdüyü üçün eyni şəkildə parse edirik
-      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
-        let textResult = data.candidates[0].content.parts[0].text.trim();
-        
-        if (textResult.startsWith("```")) {
-          textResult = textResult.replace(/```json|```/g, "").trim();
-        }
-
-        const parsedData = JSON.parse(textResult);
-
-        if (parsedData && Array.isArray(parsedData.products)) {
-          updateImageState(id, { 
-            products: parsedData.products,
-            avgOriginal: parsedData.avg_original ? parsedData.avg_original.toFixed(2) : "0.00",
-            avgDiscounted: parsedData.avg_discounted ? parsedData.avg_discounted.toFixed(2) : "0.00",
-            loading: false 
-          });
-        } else {
-          updateImageState(id, { error: "not true format", loading: false });
-        }
-      } else {
-        updateImageState(id, { error: "not responding for AI", loading: false });
-      }
-
-    } catch (error) {
-      console.error("Axios Error:", error);
-      let errMsg = "Unexpected Error";
-      if (error.response && error.response.data && error.response.data.error) {
-        errMsg = typeof error.response.data.error === 'string' 
-          ? error.response.data.error 
-          : error.response.data.error.message;
-      }
-      updateImageState(id, { error: errMsg, loading: false });
+   try {
+  const response = await axios.post(
+    "https://todo-api-production-62fa.up.railway.app/analyze",
+    {
+      image: base64Data,
     }
+  );
+
+  const data = response.data;
+
+  if (
+    data.candidates &&
+    data.candidates[0] &&
+    data.candidates[0].content &&
+    data.candidates[0].content.parts &&
+    data.candidates[0].content.parts[0]
+  ) {
+    let textResult =
+      data.candidates[0].content.parts[0].text.trim();
+
+    if (textResult.startsWith("```")) {
+      textResult = textResult
+        .replace(/```json|```/g, "")
+        .trim();
+    }
+
+    const parsedData = JSON.parse(textResult);
+
+    if (parsedData && Array.isArray(parsedData.products)) {
+      updateImageState(id, {
+        products: parsedData.products,
+        avgOriginal: parsedData.avg_original
+          ? parsedData.avg_original.toFixed(2)
+          : "0.00",
+        avgDiscounted: parsedData.avg_discounted
+          ? parsedData.avg_discounted.toFixed(2)
+          : "0.00",
+        loading: false,
+      });
+    } else {
+      updateImageState(id, {
+        error: "not true format",
+        loading: false,
+      });
+    }
+  } else {
+    updateImageState(id, {
+      error: "not responding for AI",
+      loading: false,
+    });
+  }
+} catch (error) {
+  console.log(error);
+
+  updateImageState(id, {
+    error: "Server Error",
+    loading: false,
+  });
+}
   };
 
   const updateImageState = (id, updatedFields) => {
@@ -155,7 +169,7 @@ export default function App() {
                 
                 <View style={styles.resultContainer}>
                   <View style={styles.resultRow}>
-                    <Text style={styles.resultText}>Original prices avg:</Text>
+                    <Text style={styles.resultText}>Orginial prices avg:</Text>
                     <Text style={styles.resultValueOriginal}>$ {item.avgOriginal}</Text>
                   </View>
                   <View style={styles.resultRow}>

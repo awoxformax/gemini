@@ -1,9 +1,10 @@
 {
   "name": "overage",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "node_modules/expo/AppEntry.js",
   "dependencies": {
-    "axios": "^1.18.0",
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.18.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "expo": "~56.0.12",
@@ -16,18 +17,29 @@
     "react-native": "0.85.3"
   },
   "scripts": {
-    "start": "node server.js",
+    "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "private": true,
   "devDependencies": {
+    "babel-preset-expo": "^56.0.15",
+    "nodemon": "^3.1.14",
+    "react-native-dotenv": "^3.4.11",
     "reactotron-react-native": "^5.2.0"
   },
   "description": "",
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/awoxformax/gemini.git"
+  },
+  "bugs": {
+    "url": "https://github.com/awoxformax/gemini/issues"
+  },
+  "homepage": "https://github.com/awoxformax/gemini#readme"
 }
