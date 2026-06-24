@@ -1,191 +1,228 @@
-  if (__DEV__) {
-    require("./ReactotronConfig");
-  }
-  import './ReactotronConfig'; 
+if (__DEV__) {
+  require("./ReactotronConfig");
+}
+import './ReactotronConfig'; 
 
-  import React, { useState } from 'react';
-  import { StyleSheet, Text, View, TouchableOpacity, Image, ActivityIndicator, RefreshControl, StatusBar } from 'react-native';
-  import * as ImagePicker from 'expo-image-picker';
-  import axios from 'axios'; 
-  import { ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Image, ActivityIndicator, RefreshControl, StatusBar } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios'; 
+import { ScrollView } from 'react-native';
 
-  export default function App() {
-    const [imagesList, setImagesList] = useState([]);
-    const [refreshing, setRefreshing] = useState(false);
-  
-    const onRefresh = () => {
-      setRefreshing(true);
-      setImagesList([]);
-      setRefreshing(false); 
+// FIREBASE ANALYTICS ƏLAVƏ EDİLDİ
+import firebaseApp from '@react-native-firebase/app';
+import analytics from '@react-native-firebase/analytics';
+
+export default function App() {
+  const [imagesList, setImagesList] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Tətbiq ilk dəfə açılanda Firebase-ə "App Opened" loqu göndəririk
+  useEffect(() => {
+    const initAnalytics = async () => {
+      try {
+        await analytics().logAppOpen();
+        console.log("Firebase Analytics: Tətbiq açılışı qeydə alındı.");
+      } catch (e) {
+        console.log("Firebase Analytics xətası:", e);
+      }
     };
+    initAnalytics();
+  }, []);
 
-    const pickImage = async () => {
-      let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: false, 
-        quality: 1,
-        base64: true,
-        allowsMultipleSelection: true,
+  const onRefresh = () => {
+    setRefreshing(true);
+    setImagesList([]);
+    setRefreshing(false); 
+  };
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: false, 
+      quality: 1,
+      base64: true,
+      allowsMultipleSelection: true,
+    });
+
+    if (!result.canceled) {
+      const selectedImages = result.assets.map((asset, index) => ({
+        id: Date.now().toString() + index, 
+        uri: asset.uri,
+        base64: asset.base64,
+        loading: true,
+        products: [], 
+        avgOriginal: null, 
+        avgDiscounted: null, 
+        error: null
+      }));
+
+      setImagesList(selectedImages);
+
+      // FIREBASE: İstifadəçinin neçə şəkil seçdiyini analitikaya göndəririk
+      await analytics().logEvent('select_images_count', {
+        count: selectedImages.length
       });
 
-      if (!result.canceled) {
-        const selectedImages = result.assets.map((asset, index) => ({
-          id: Date.now().toString() + index, 
-          uri: asset.uri,
-          base64: asset.base64,
-          loading: true,
-          products: [], 
-          avgOriginal: null, 
-          avgDiscounted: null, 
-          error: null
-        }));
-
-        setImagesList(selectedImages);
-
-        selectedImages.forEach((imgObj) => {
-          sendToGeminiWithAxios(imgObj.id, imgObj.base64);
-        });
-      }
-    };
-
-    const sendToGeminiWithAxios = async (id, base64Data) => {
-
-    try {
-    const response = await axios.post(
-      "gemini-production-2dcf.up.railway.app",
-      {
-        image: base64Data,
-      }
-    );
-
-    const data = response.data;
-
-    if (
-      data.candidates &&
-      data.candidates[0] &&
-      data.candidates[0].content &&
-      data.candidates[0].content.parts &&
-      data.candidates[0].content.parts[0]
-    ) {
-      let textResult =
-        data.candidates[0].content.parts[0].text.trim();
-
-      if (textResult.startsWith("```")) {
-        textResult = textResult
-          .replace(/```json|```/g, "")
-          .trim();
-      }
-
-      const parsedData = JSON.parse(textResult);
-
-      if (parsedData && Array.isArray(parsedData.products)) {
-        updateImageState(id, {
-          products: parsedData.products,
-          avgOriginal: parsedData.avg_original
-            ? parsedData.avg_original.toFixed(2)
-            : "0.00",
-          avgDiscounted: parsedData.avg_discounted
-            ? parsedData.avg_discounted.toFixed(2)
-            : "0.00",
-          loading: false,
-        });
-      } else {
-        updateImageState(id, {
-          error: "not true format",
-          loading: false,
-        });
-      }
-    } else {
-      updateImageState(id, {
-        error: "not responding for AI",
-        loading: false,
+      selectedImages.forEach((imgObj) => {
+        sendToGeminiWithAxios(imgObj.id, imgObj.base64);
       });
     }
-  } catch (error) {
-    console.log(error);
+  };
 
-    updateImageState(id, {
-      error: "Server Error",
-      loading: false,
-    });
-  }
-    };
+  const sendToGeminiWithAxios = async (id, base64Data) => {
+    try {
+      const cleanBase64 = base64Data ? base64Data.replace(/^data:image\/\w+;base64,/, "") : "";
 
-    const updateImageState = (id, updatedFields) => {
-      setImagesList(prevList => 
-        prevList.map(item => item.id === id ? { ...item, ...updatedFields } : item)
+      // FIREBASE: Analiz prosesinin başladığını qeyd edirik
+      await analytics().logEvent('receipt_scan_start', { image_id: id });
+
+      const response = await axios.post(
+        "https://gemini-production-2dcf.up.railway.app/analyze",
+        {
+          image: cleanBase64,
+        }
       );
-    };
 
-    return (
-      <>
-        <StatusBar barStyle="light-content" backgroundColor="#121212" />
-        
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.container}
-          refreshControl = {
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} color="#10B981" />
-          }
-        >
-          <Text style={styles.title}>Check Analysis App</Text>
+      const data = response.data;
 
-          <TouchableOpacity style={styles.button} onPress={pickImage}>
-            <Text style={styles.buttonText}>Choose from Gallery</Text>
-          </TouchableOpacity>
+      if (
+        data.candidates &&
+        data.candidates[0] &&
+        data.candidates[0].content &&
+        data.candidates[0].content.parts &&
+        data.candidates[0].content.parts[0]
+      ) {
+        let textResult = data.candidates[0].content.parts[0].text.trim();
 
-          {imagesList.map((item) => (
-            <View key={item.id} style={styles.imageCard}>
-              <Image source={{ uri: item.uri }} style={styles.image} />
-              
-              {item.loading && (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#10B981" />
-                  <Text style={styles.loadingText}>Scanning receipt...</Text>
-                </View>
-              )}
+        if (textResult.startsWith("```")) {
+          textResult = textResult.replace(/```json|```/g, "").trim();
+        }
 
-              {item.error && !item.loading && (
-                <Text style={styles.errorText}>Error: {item.error}</Text>
-              )}
+        const parsedData = JSON.parse(textResult);
 
-              {!item.loading && item.products.length > 0 && (
-                <View style={styles.tableContainer}>
-                  <View style={styles.tableHeader}>
-                    <Text style={styles.headerCellCode}>Code</Text>
-                    <Text style={styles.headerCellName}>Product</Text>
-                    <Text style={styles.headerCellPrice}>Price</Text>
-                    <Text style={styles.headerCellDiscount}>D/P</Text>
-                  </View>
-                  
-                  {item.products.map((prod, pIndex) => (
-                    <View key={pIndex} style={styles.tableRow}>
-                      <Text style={styles.cellCode} numberOfLines={1} adjustsFontSizeToFit>{prod.code}</Text>
-                      <Text style={styles.cellName} numberOfLines={1}>{prod.name}</Text>
-                      <Text style={styles.cellOriginalPrice}>${prod.original_price}</Text>
-                      <Text style={styles.cellDiscountedPrice}>${prod.discounted_price}</Text>
-                    </View>
-                  ))}
-                  
-                  <View style={styles.resultContainer}>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultText}>Orginial prices avg:</Text>
-                      <Text style={styles.resultValueOriginal}>$ {item.avgOriginal}</Text>
-                    </View>
-                    <View style={styles.resultRow}>
-                      <Text style={styles.resultText}>Discount price avg:</Text>
-                      <Text style={styles.resultValueDiscounted}>$ {item.avgDiscounted}</Text>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </View>
-          ))}
-        </ScrollView>
-      </>
+        if (parsedData && Array.isArray(parsedData.products)) {
+          updateImageState(id, {
+            products: parsedData.products,
+            avgOriginal: parsedData.avg_original
+              ? Number(parsedData.avg_original).toFixed(2)
+              : "0.00",
+            avgDiscounted: parsedData.avg_discounted
+              ? Number(parsedData.avg_discounted).toFixed(2)
+              : "0.00",
+            loading: false,
+          });
+
+          // FIREBASE: Analizin uğurla bitdiyini və neçə məhsul tapıldığını göndəririk
+          await analytics().logEvent('receipt_scan_success', {
+            product_count: parsedData.products.length,
+            avg_original: parsedData.avg_original || 0
+          });
+
+        } else {
+          updateImageState(id, {
+            error: "not true format",
+            loading: false,
+          });
+          
+          // FIREBASE: Format xətasını qeyd edirik
+          await analytics().logEvent('receipt_scan_failed', { reason: 'wrong_json_format' });
+        }
+      } else {
+        updateImageState(id, {
+          error: "not responding for AI",
+          loading: false,
+        });
+
+        // FIREBASE: AI cavab vermədikdə qeyd edirik
+        await analytics().logEvent('receipt_scan_failed', { reason: 'ai_no_response' });
+      }
+    } catch (error) {
+      console.log("Sorğu zamanı xəta:", error);
+      updateImageState(id, {
+        error: "Server Error",
+        loading: false,
+      });
+
+      // FIREBASE: Server xətasını qeyd edirik
+      await analytics().logEvent('receipt_scan_failed', { reason: 'server_error', message: error.message });
+    }
+  };
+
+  const updateImageState = (id, updatedFields) => {
+    setImagesList(prevList => 
+      prevList.map(item => item.id === id ? { ...item, ...updatedFields } : item)
     );
-  }
+  };
 
+  return (
+    <>
+      <StatusBar barStyle="light-content" backgroundColor="#121212" />
+      
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.container}
+        refreshControl = {
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} color="#10B981" />
+        }
+      >
+        <Text style={styles.title}>Check Analysis App</Text>
+
+        <TouchableOpacity style={styles.button} onPress={pickImage}>
+          <Text style={styles.buttonText}>Choose from Gallery</Text>
+        </TouchableOpacity>
+
+        {imagesList.map((item) => (
+          <View key={item.id} style={styles.imageCard}>
+            <Image source={{ uri: item.uri }} style={styles.image} />
+            
+            {item.loading && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#10B981" />
+                <Text style={styles.loadingText}>Scanning receipt...</Text>
+              </View>
+            )}
+
+            {item.error && !item.loading && (
+              <Text style={styles.errorText}>Error: {item.error}</Text>
+            )}
+
+            {!item.loading && item.products.length > 0 && (
+              <View style={styles.tableContainer}>
+                <View style={styles.tableHeader}>
+                  <Text style={styles.headerCellCode}>Code</Text>
+                  <Text style={styles.headerCellName}>Product</Text>
+                  <Text style={styles.headerCellPrice}>Price</Text>
+                  <Text style={styles.headerCellDiscount}>D/P</Text>
+                </View>
+                
+                {item.products.map((prod, pIndex) => (
+                  <View key={pIndex} style={styles.tableRow}>
+                    <Text style={styles.cellCode} numberOfLines={1} adjustsFontSizeToFit>{prod.code}</Text>
+                    <Text style={styles.cellName} numberOfLines={1}>{prod.name}</Text>
+                    <Text style={styles.cellOriginalPrice}>${prod.original_price}</Text>
+                    <Text style={styles.cellDiscountedPrice}>${prod.discounted_price}</Text>
+                  </View>
+                ))}
+                
+                <View style={styles.resultContainer}>
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultText}>Original prices avg:</Text>
+                    <Text style={styles.resultValueOriginal}>$ {item.avgOriginal}</Text>
+                  </View>
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultText}>Discount price avg:</Text>
+                    <Text style={styles.resultValueDiscounted}>$ {item.avgDiscounted}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+    </>
+  );
+}
   const styles = StyleSheet.create({
     scrollView: {
       flex: 1,

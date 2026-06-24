@@ -13,6 +13,10 @@ app.post("/analyze", async (req, res) => {
   try {
     const { image } = req.body;
 
+    if (!image) {
+      return res.status(400).json({ error: "Image data is missing" });
+    }
+
     const promptText = `
 Extract all items from this receipt image.
 
@@ -67,6 +71,9 @@ Example:
             ],
           },
         ],
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
       },
       {
         headers: {
@@ -89,7 +96,7 @@ Example:
 });
 
 app.get("/", (req, res) => {
-  res.send("Receipt API Running");
+  res.send("Receipt API Running. Use POST /analyze for testing.");
 });
 
 const PORT = process.env.PORT || 8080;

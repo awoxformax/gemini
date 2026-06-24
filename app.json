@@ -20,6 +20,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0a2a1e1c-a154-426b-9616-f34e93ebe3b1"
+      }
+    },
+    "owner": "awox",
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/analytics"
+    ]
   }
 }

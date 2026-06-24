@@ -1,9 +1,11 @@
 {
   "name": "overage",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "node_modules/expo/AppEntry.js",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@react-native-firebase/analytics": "^25.0.1",
+    "@react-native-firebase/app": "^25.0.1",
     "axios": "^1.18.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
